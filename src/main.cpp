@@ -1,25 +1,25 @@
-/*
- * Blink
- * Turns on an LED on for one second,
- * then off for one second, repeatedly.
- */
-
 #include "Arduino.h"
+int ledState = LOW;
+unsigned long previousMillis = 0;  
 
-void setup()
-{
-  // initialize LED digital pin as an output.
+const long interval = 1000;      
+
+void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
 }
 
-void loop()
-{
-  // turn the LED on (HIGH is the voltage level)
-  digitalWrite(LED_BUILTIN, HIGH);
-  // wait for a second
-  delay(1000);
-  // turn the LED off by making the voltage LOW
-  digitalWrite(LED_BUILTIN, LOW);
-   // wait for a second
-  delay(1000);
+void loop() {
+  unsigned long currentMillis = millis();
+
+  if (currentMillis - previousMillis >= interval) {
+    previousMillis = currentMillis;
+
+    if (ledState == LOW) {
+      ledState = HIGH;
+    } else {
+      ledState = LOW;
+    }
+
+    digitalWrite(LED_BUILTIN, ledState);
+  }
 }
