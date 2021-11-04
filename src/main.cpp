@@ -8,22 +8,24 @@
 #include "time.h"
 #include <TZ.h>
 #include "ArduinoJson.h"
+#include <time.h>
 
 #define MYTZ TZ_Europe_Warsaw
 #define WiFiRetries 20
+#define WiFiRetryDelay 500
+#define turnoffTime "00:05"
 
 bool ledState = false;
 unsigned long previousMillis = 0;  
 
-static timeval tv;
 static time_t now;
+static time_t sunsetTime;
 
 String host = "https://api.ipgeolocation.io/";
 String sunsetApi = "astronomy?apiKey=xxx";
 StaticJsonDocument<1024> sunsetResponse;
 
 void vShowTime() {
-  gettimeofday(&tv, nullptr);
   now = time(nullptr);
   Serial.printf("The current timestamp: %ju\n", (uintmax_t)now);
   // human readable
@@ -38,8 +40,6 @@ void vBlinkLed() {
 
     ledState = !ledState;
     digitalWrite(LED_BUILTIN, !ledState);
-    digitalWrite(D3, ledState);
-    vShowTime();
   }
 }
 
@@ -50,7 +50,7 @@ void vSetupWifi() {
   // Wait for connection
   // TODO non-blocking plz
   while (WiFi.status() != WL_CONNECTED && retries <= WiFiRetries) {
-    delay(500);
+    delay(WiFiRetryDelay);
     Serial.print(".");
     retries++;
   }
@@ -66,11 +66,29 @@ void vSetupWifi() {
   }
 }
 
+void vTurnOffWifi() {
+  WiFi.disconnect();
+  WiFi.mode(WIFI_OFF);
+  printf("Wifi turned off\n");
+}
+
 void vSetupTime() {
   // TODO dynamic timezone
   configTime(MYTZ, "pool.ntp.org");
   Serial.printf("timezone:  %s\n", getenv("TZ") ? : "(none)");
-  vShowTime();
+}
+
+// sunset time in format H:M
+time_t tConvertHourToTimestamp(const char* sunsetTime) {
+  int hour = atoi(sunsetTime);
+  int minute = atoi(sunsetTime + 3);
+  struct tm tm;
+  now = time(nullptr);
+  tm = *localtime(&now);
+  tm.tm_hour = hour;
+  tm.tm_min = minute;
+  tm.tm_sec = 0;
+  return mktime(&tm);
 }
 
 void vGetSunsetData() {
@@ -91,6 +109,10 @@ void vGetSunsetData() {
         error = deserializeJson(sunsetResponse, payload);
         const char* sunset = sunsetResponse["sunset"];
         Serial.printf("Sunset today: %s \n" , sunset);
+        // print converted sunset time
+        sunsetTime = tConvertHourToTimestamp(sunset);
+        Serial.printf("Sunset timestamp: %lu \n", (long unsigned int)sunsetTime);
+        vShowTime();
       }
       else {
         Serial.print("Error code: ");
@@ -98,6 +120,17 @@ void vGetSunsetData() {
       }
 
       http.end();
+}
+
+void vToggleOutput() {
+  now = time(nullptr);
+  if (now >= sunsetTime) {
+    digitalWrite(LED_BUILTIN, HIGH);
+    digitalWrite(D3, HIGH);
+  } else {
+    digitalWrite(LED_BUILTIN, LOW);
+    digitalWrite(D3, LOW);
+  }
 }
 
 void setup() {
@@ -111,12 +144,16 @@ void setup() {
   if (WiFi.status() == WL_CONNECTED) {
     vSetupTime();
     vGetSunsetData();
+    vToggleOutput();
   } else {
     Serial.println("Enabling default mode.");
-    // TODO just turn on the switch
+    digitalWrite(D3, HIGH);
   }
+  vTurnOffWifi();
 }
 
 void loop() {
   vBlinkLed();
 }
+
+
