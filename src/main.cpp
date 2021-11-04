@@ -14,13 +14,14 @@
 #define MYTZ TZ_Europe_Warsaw
 #define WiFiRetries 20
 #define WiFiRetryDelay 500
-#define turnoffTime "00:05"
+#define turnoffTimeStr "00:05"
 
 bool ledState = false;
 unsigned long previousMillis = 0;  
 
 static time_t now;
 static time_t sunsetTime;
+static time_t turnoffTime;
 
 String host = "https://api.ipgeolocation.io/";
 StaticJsonDocument<1024> sunsetResponse;
@@ -45,6 +46,7 @@ void vBlinkLed() {
 
 void vSetupWifi() {
   uint8_t retries = 0;
+  Serial.println("Connneting to WiFi...");
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   // Wait for connection
@@ -88,10 +90,15 @@ time_t tConvertHourToTimestamp(const char* sunsetTime) {
   tm.tm_hour = hour;
   tm.tm_min = minute;
   tm.tm_sec = 0;
+  // between those hours we mean the next day for sure
+  if (hour >= 0 && hour < 12) {
+    tm.tm_mday += 1;
+  }
   return mktime(&tm);
 }
 
 void vGetSunsetData() {
+  Serial.println("Retrieving sunset time...");
   HTTPClient http;
   WiFiClientSecure client;
   DeserializationError error;
@@ -122,14 +129,35 @@ void vGetSunsetData() {
       http.end();
 }
 
-void vToggleOutput() {
-  now = time(nullptr);
-  if (now >= sunsetTime) {
-    digitalWrite(LED_BUILTIN, HIGH);
-    digitalWrite(D3, HIGH);
+void vProcessLedStatus() {
+  vSetupWifi();
+  if (WiFi.status() == WL_CONNECTED) {
+    vSetupTime();
+    vGetSunsetData();
+    // set the next turn off time
+    turnoffTime = tConvertHourToTimestamp(turnoffTimeStr);
+    Serial.printf("Turnoff timestamp: %lu \n", (long unsigned int)turnoffTime);
+    now = time(nullptr);
+
+    if (now >= sunsetTime) {
+      Serial.printf("[%s] Turning on leds\n", ctime(&now));
+      digitalWrite(D3, HIGH);
+    } else {
+      Serial.printf("[%s] Turning off leds\n", ctime(&now));
+      digitalWrite(D3, LOW);
+    }
+
   } else {
-    digitalWrite(LED_BUILTIN, LOW);
-    digitalWrite(D3, LOW);
+    Serial.println("Enabling default mode (ON).");
+    digitalWrite(D3, HIGH);
+  }
+  vTurnOffWifi();
+}
+
+void vWaitForTurnOffTime() {
+  now = time(nullptr);
+  if (now > turnoffTime || now >= sunsetTime) {
+    vProcessLedStatus();
   }
 }
 
@@ -140,20 +168,13 @@ void setup() {
   Serial.begin(74880);
   Serial.println("Sunset WiFi Switch Init");
 
-  vSetupWifi();
-  if (WiFi.status() == WL_CONNECTED) {
-    vSetupTime();
-    vGetSunsetData();
-    vToggleOutput();
-  } else {
-    Serial.println("Enabling default mode.");
-    digitalWrite(D3, HIGH);
-  }
-  vTurnOffWifi();
+  vProcessLedStatus();
+  
 }
 
 void loop() {
   vBlinkLed();
+  vWaitForTurnOffTime();
 }
 
 
