@@ -9,6 +9,7 @@
 #include <TZ.h>
 #include "ArduinoJson.h"
 #include <time.h>
+#include "main.h"
 
 #define MYTZ TZ_Europe_Warsaw
 #define WiFiRetries 20
@@ -22,7 +23,6 @@ static time_t now;
 static time_t sunsetTime;
 
 String host = "https://api.ipgeolocation.io/";
-String sunsetApi = "astronomy?apiKey=xxx";
 StaticJsonDocument<1024> sunsetResponse;
 
 void vShowTime() {
@@ -46,7 +46,7 @@ void vBlinkLed() {
 void vSetupWifi() {
   uint8_t retries = 0;
   WiFi.mode(WIFI_STA);
-  WiFi.begin("xxx", "xxx");
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
   // Wait for connection
   // TODO non-blocking plz
   while (WiFi.status() != WL_CONNECTED && retries <= WiFiRetries) {
@@ -99,7 +99,7 @@ void vGetSunsetData() {
   client.setInsecure();
   client.connect(host, 443);
 
-  http.begin(client, (host + sunsetApi).c_str());
+  http.begin(client, (host + SUNSET_API).c_str());
   int httpResponseCode = http.GET();
 
   if (httpResponseCode > 0) {
