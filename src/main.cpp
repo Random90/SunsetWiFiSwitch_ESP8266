@@ -17,6 +17,7 @@
 #define turnoffTimeStr "00:05"
 
 bool ledState = false;
+bool defaultMode = false;
 unsigned long previousMillis = 0;
 
 static time_t now;
@@ -68,6 +69,7 @@ void vSetupWifi()
     Serial.print("Connected, ");
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
+    defaultMode = false;
   }
   else
   {
@@ -183,7 +185,7 @@ void vToggleLed()
     Serial.printf("%s Turning ON leds\n", ctime(&now));
     digitalWrite(D3, HIGH);
   }
-  else
+  else if(!defaultMode)
   {
     Serial.printf("%s Turning OFF leds\n", ctime(&now));
     digitalWrite(D3, LOW);
@@ -233,6 +235,7 @@ void setup()
   else
   {
     Serial.println("Enabling default mode (ON).");
+    defaultMode = true;
     digitalWrite(D3, HIGH);
   }
   vTurnOffWifi();
