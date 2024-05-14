@@ -11,8 +11,4 @@ Turn on/off LED lights based on current localization sunset time using ESP8266
 
 ### Building
 Install Visual Studio Code and Platformio extension, git clone the repo, open in platformio, compile, upload to your ESP8266. Project is hardcoded for WEMOS D1 Mini board, so you might want to change it inside `platformio.ini`.
-### Todo features
-- automatic timezone detection
-- better wifi configuration (ESP NOW?)
-- multiple esp8266 boards support
 
